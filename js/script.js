@@ -5,6 +5,7 @@ const popularMovies = document.querySelector("#popular-movies");
 const tvShows = document.querySelector("#popular-shows");
 const movieDetails = document.querySelector("#movie-details");
 const showDetails = document.querySelector("#show-details");
+const swiperWrapper = document.querySelector(".swiper-wrapper");
 
 async function displayPopularMovies() {
   const { results } = await fetchAPIData("movie/popular");
@@ -227,6 +228,60 @@ async function displayTvDetails() {
   showDetails.append(div);
 }
 
+async function displaySwiper() {
+  const { results } = await fetchAPIData("movie/now_playing");
+  console.log(results[0]);
+  results.forEach((movie) => {
+    const div = document.createElement("div");
+    div.classList.add("swiper-slide");
+    div.innerHTML = `
+
+            <a href="movie-details.html?id=${movie.id}">
+            ${
+              movie.poster_path
+                ? `<img src="https://image.tmdb.org/t/p/w500${movie.poster_path}" alt=${movie.title} />`
+                : `<img src="./images/no-image.jpg" alt=${movie.title} />`
+            }
+              
+            </a>
+            <h4 class="swiper-rating">
+              <i class="fas fa-star text-secondary"></i> ${movie.vote_average.toFixed(
+                1
+              )} / 10
+            </h4>
+          
+`;
+    swiperWrapper.append(div);
+    swiperInit();
+  });
+
+}
+
+function swiperInit() {
+  const swiper = new Swiper('.swiper', {
+    slidesPerView: 1, 
+    spaceBetween: 30,
+    freeMode: true,
+    loop: true,
+    autoplay: {
+      delay: 4000,
+      disableOnInteraction: false
+    },
+    breakpoints: {
+      500: {
+        slidesPerView: 2
+      },
+      700: {
+        slidesPerView: 3
+      },
+      1200: {
+        slidesPerView: 4
+      }
+    }
+  })
+}
+
+
 const showSpinner = () => {
   document.querySelector(".spinner").classList.add("show");
 };
@@ -252,6 +307,7 @@ function initApp() {
     case "/":
     case "/index.html":
       displayPopularMovies();
+      displaySwiper();
       break;
     case "/shows.html":
       displayTvShows();
