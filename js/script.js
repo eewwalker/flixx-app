@@ -1,11 +1,24 @@
 const global = {
   currentPage: window.location.pathname,
+  search: {
+    term: "",
+    type: "",
+    page: 1,
+    totalPages: 1,
+    totalResults: 0,
+  },
+  apiKey: "5bbe90295c6cb39b8734f83729d3f7f0",
+  apiUrl: "https://api.themoviedb.org/3/",
 };
+
 const popularMovies = document.querySelector("#popular-movies");
 const tvShows = document.querySelector("#popular-shows");
 const movieDetails = document.querySelector("#movie-details");
 const showDetails = document.querySelector("#show-details");
 const swiperWrapper = document.querySelector(".swiper-wrapper");
+const searchResults = document.querySelector("#search-results");
+const searchResultsHeading = document.querySelector("#search-results-heading");
+const pagination = document.querySelector("#pagination");
 
 async function displayPopularMovies() {
   const { results } = await fetchAPIData("movie/popular");
@@ -126,9 +139,6 @@ function displayBackDrop(type, path) {
     ? movieDetails.append(backDropDiv)
     : showDetails.append(backDropDiv);
 }
-function addCommasToNumber(number) {
-  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
 
 async function displayTvShows() {
   const { results } = await fetchAPIData("tv/popular");
@@ -160,8 +170,6 @@ async function displayTvShows() {
           </div>`;
     tvShows.appendChild(div);
   });
-
-  console.log(results);
 }
 
 async function displayTvDetails() {
@@ -230,7 +238,6 @@ async function displayTvDetails() {
 
 async function displaySwiper() {
   const { results } = await fetchAPIData("movie/now_playing");
-  console.log(results[0]);
   results.forEach((movie) => {
     const div = document.createElement("div");
     div.classList.add("swiper-slide");
@@ -254,44 +261,138 @@ async function displaySwiper() {
     swiperWrapper.append(div);
     swiperInit();
   });
-
 }
 
 function swiperInit() {
-  const swiper = new Swiper('.swiper', {
-    slidesPerView: 1, 
+  const swiper = new Swiper(".swiper", {
+    slidesPerView: 1,
     spaceBetween: 30,
     freeMode: true,
     loop: true,
     autoplay: {
       delay: 4000,
-      disableOnInteraction: false
+      disableOnInteraction: false,
     },
     breakpoints: {
       500: {
-        slidesPerView: 2
+        slidesPerView: 2,
       },
       700: {
-        slidesPerView: 3
+        slidesPerView: 3,
       },
       1200: {
-        slidesPerView: 4
-      }
-    }
-  })
+        slidesPerView: 4,
+      },
+    },
+  });
 }
 
+async function search() {
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  global.search.type = urlParams.get("type");
+  global.search.term = urlParams.get("search-term");
+  const {
+    search: { type, term },
+  } = global;
+  if (term !== "" && term !== null) {
+    const { results, total_pages, page, total_results } = await searchAPIData();
+    global.search.page = page;
+    global.search.totalPages = total_pages;
+    global.search.totalResults = total_results;
+    if (results.length === 0) {
+      showAlert("No results found");
+      return;
+    } else {
+      displaySearchResults(results);
+      document.querySelector("#search-term").value = "";
+    }
+  } else {
+    showAlert("Enter Search Term");
+  }
+}
 
-const showSpinner = () => {
-  document.querySelector(".spinner").classList.add("show");
-};
-const hideSpinner = () => {
-  document.querySelector(".spinner").classList.remove("show");
-};
+function displaySearchResults(data) {
+  searchResults.innerHTML = "";
+  searchResultsHeading.innerHTML = "";
+  searchResultsHeading.innerHTML = `<h2>${
+    data.length * global.search.page
+  } of ${global.search.totalResults} results for ${global.search.term}</h2>`;
+  console.log(data, global);
+  data.forEach((result) => {
+    const div = document.createElement("div");
+    div.classList.add("card");
+    div.innerHTML = `   
+        <a href='${global.search.type}-details.html?id=${result.id}'>
+        ${
+          result.poster_path
+            ? ` <img src="https://image.tmdb.org/t/p/w500${
+                result.poster_path
+              }" class="card-img-top" alt=${
+                global.search.type === "movie"
+                  ? result.original_title
+                  : result.name
+              } />`
+            : ` <img src="images/no-image.jpg" class="card-img-top" alt=${
+                global.search.type === "movie"
+                  ? result.original_title
+                  : result.name
+              } />`
+        }
+           
+          </a>
+         
+          <div class="card-body">
+            <h5 class="card-title">${
+              global.search.type === "movie"
+                ? result.original_title
+                : result.name
+            }</h5>
+            <p class="card-text">
+              <small class="text-muted">Release Date: ${
+                global.search.type === "movie"
+                  ? result.release_date
+                  : result.first_air_date
+              }</small>
+            </p>
+    `;
+    searchResults.append(div);
+  });
+  displayPagination();
+}
+//Create and Display Pagination
+function displayPagination() {
+  pagination.innerHTML = "";
+  const div = document.createElement("div");
+  div.classList.add("pagination");
+  div.innerHTML = ` 
+          <button class="btn btn-primary" id="prev">Prev</button>
+          <button class="btn btn-primary" id="next">Next</button>
+          <div class="page-counter">Page ${global.search.page} of ${global.search.totalPages}</div>
+          `;
+  pagination.append(div);
+  if (global.search.page === 1) {
+    document.querySelector("#prev").disabled = true;
+  }
+  if (global.search.page === global.search.totalPages) {
+    document.querySelector("#next").disabled = true;
+  }
+  document.querySelector("#next").addEventListener("click", async () => {
+    global.search.page++;
+    const { results, page } = await searchAPIData();
+    displaySearchResults(results);
+  });
+  document.querySelector("#prev").addEventListener("click", async () => {
+    global.search.page--;
+    const { results, page } = await searchAPIData();
+    displaySearchResults(results);
+  });
+}
+
 //Fetch Data from API
 async function fetchAPIData(endpoint) {
-  const apiKey = "5bbe90295c6cb39b8734f83729d3f7f0";
-  const apiUrl = "https://api.themoviedb.org/3/";
+  const { apiKey } = global;
+  const { apiUrl } = global;
   showSpinner();
   const response = await fetch(
     `${apiUrl}${endpoint}?api_key=${apiKey}&language=en-US`
@@ -300,6 +401,30 @@ async function fetchAPIData(endpoint) {
   hideSpinner();
   return data;
 }
+
+const showSpinner = () => {
+  document.querySelector(".spinner").classList.add("show");
+};
+const hideSpinner = () => {
+  document.querySelector(".spinner").classList.remove("show");
+};
+
+//Make request to search
+
+async function searchAPIData() {
+  const { apiKey, apiUrl } = global;
+  const {
+    search: { type, term, page },
+  } = global;
+  showSpinner();
+  const response = await fetch(
+    `${apiUrl}search/${type}?api_key=${apiKey}&language=en-US&query=${term}&page=${page}`
+  );
+  const data = await response.json();
+  hideSpinner();
+  return data;
+}
+
 //Init App
 // Create a Router: whatever page we are currently own run certain function or do an action
 function initApp() {
@@ -319,7 +444,7 @@ function initApp() {
       displayTvDetails();
       break;
     case "/search.html":
-      console.log("search page");
+      search();
       break;
   }
   highlightActiveNav();
@@ -332,6 +457,20 @@ function highlightActiveNav() {
       link.classList.add("active");
     }
   });
+}
+
+function addCommasToNumber(number) {
+  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+//Show Alert
+function showAlert(messsage, className = "alert-error") {
+  const alertEl = document.createElement("div");
+  alertEl.classList.add("alert", className);
+  alertEl.append(document.createTextNode(messsage));
+  document.querySelector("#alert").appendChild(alertEl);
+  setTimeout(() => {
+    alertEl.remove();
+  }, 3000);
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
